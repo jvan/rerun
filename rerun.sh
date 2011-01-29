@@ -25,7 +25,6 @@ rerun() {
 
    local ncat
    local get_hist_cmd
-   local split_range
    local parse_hist_ids
    
    # Print contents of a file with line numbers
@@ -43,30 +42,18 @@ rerun() {
       history | grep "^[ ]*$1" | sed "s/^[ ]*[0-9]*[ ]*//g"
    }
 
-   split_range() {
-      echo "$1" | sed "s/\([0-9]*\)-\([0-9]*\)/\1 \2/g"
-   }
-
-   local hist_ids=()
-
    parse_hist_ids() {
-      local hist_idx=0
+      local -a hist_ids=()
       local arg
       for arg in $*
-         do
-            if [[ "$arg" =~ "-" ]]; then
-               local range=`split_range $arg`
-               local i
-               for i in `seq $range`
-               do
-                  hist_ids[$hist_idx]=$i
-                  hist_idx=$((hist_idx+1))
-               done
-            else
-               hist_ids[$hist_idx]=$arg
-               hist_idx=$((hist_idx+1))
-            fi
-         done
+      do
+         if [[ "$arg" =~ "-" ]]; then
+            hist_ids+=($(seq ${arg/-/ }))
+         else
+            hist_ids+=($arg)
+         fi
+      done
+      echo ${hist_ids[*]}
    }
 
    check_macro_file_exists() {
@@ -95,13 +82,12 @@ rerun() {
       fi
    done
 
-   local action=$1
-   shift
+   local action=$1; shift
 
    case "$action" in
      
       create)
-         local macro_name=$1
+         local macro_name=$1; shift
          # Bailout if the macro is already defined
          if [[ -e $RERUN_DIR/$macro_name ]];then
             echo "ERROR: macro file already exists."
@@ -110,13 +96,9 @@ rerun() {
 
          echo " -- Creating macro [$macro_name]"
          
-         # Get the history ids
-         shift
-         parse_hist_ids $*
-
          # Get commands from history and add them to the macro file
          local hist_id
-         for hist_id in ${hist_ids[@]}
+         for hist_id in $(parse_hist_ids $*)
          do
             cmd=`get_hist_cmd $hist_id`
             echo $cmd >> $RERUN_DIR/$macro_name
@@ -152,20 +134,16 @@ rerun() {
          ;;
       append)
          # Add commands to the end of an existing macro
-         local macro_name=$1
+         local macro_name=$1; shift
          check_macro_file_exists $macro_name || return $? 
          
          echo " -- Appending macro [$macro_name]"
 
-         # Get the history ids
-         shift
-         parse_hist_ids $*
-         
          # Print the original macro file
          ncat $RERUN_DIR/$macro_name
 
          local hist_id
-         for hist_id in ${hist_ids[@]}
+         for hist_id in $(parse_hist_ids $*)
          do
             local cmd=`get_hist_cmd $hist_id`
             echo $cmd >> $RERUN_DIR/$macro_name
@@ -177,25 +155,20 @@ rerun() {
          ;;
       insert)
          # Insert commands into an existing macro
-         local macro_name=$1
+         local macro_name=$1; shift
          check_macro_file_exists $macro_name || return $? 
 
          echo " -- Inserting into macro [$macro_name]"
          
          # Get the index of the insertion point
-         local cmd_pos=$2
-         
-         # Get the history ids
-         shift
-         shift
-         parse_hist_ids $*
+         local cmd_pos=$1; shift
 
          # Print the original macro file
          ncat $RERUN_DIR/$macro_name
          
          local idx=0
          local hist_id
-         for hist_id in ${hist_ids[@]}
+         for hist_id in $(parse_hist_ids $*)
          do
             local cmd=`get_hist_cmd $hist_id`
             local pos=$(($cmd_pos+$idx))
