@@ -16,48 +16,44 @@
 #    the BASH history.
 #
 
-rerun() {
+################################################################################
+# Internal Functions
+#
+################################################################################
 
-   ################################################################################
-   # Internal Functions
-   #
-   ################################################################################
+# Print contents of a file with line numbers
+__rerun_ncat() {
+   local index=0
+   local line
+   while read line
+   do
+      printf "[%d] %s\n" $index "$line"
+      index=$((index+1))
+   done <$1
+}
 
-   local ncat
-   local parse_hist_ids
-   
-   # Print contents of a file with line numbers
-   ncat() {
-      local index=0
-      local line
-      while read line
-      do
-         printf "[%d] %s\n" $index "$line"
-         index=$((index+1))
-      done <$1
-   }
-
-   parse_hist_ids() {
-      local -a hist_ids=()
-      local arg
-      for arg in $*
-      do
-         if [[ "$arg" =~ "-" ]]; then
-            hist_ids+=($(seq ${arg/-/ }))
-         else
-            hist_ids+=($arg)
-         fi
-      done
-      echo ${hist_ids[*]}
-   }
-
-   check_macro_file_exists() {
-      if [[ ! -e $RERUN_DIR/$1 ]]; then
-         echo "ERROR: macro file does not exist."
-         return 1
+__rerun_parse_hist_ids() {
+   local -a hist_ids=()
+   local arg
+   for arg in $*
+   do
+      if [[ "$arg" =~ "-" ]]; then
+         hist_ids+=($(seq ${arg/-/ }))
+      else
+         hist_ids+=($arg)
       fi
-   }
+   done
+   echo ${hist_ids[*]}
+}
 
+__rerun_check_macro_file_exists() {
+   if [[ ! -e $RERUN_DIR/$1 ]]; then
+      echo "ERROR: macro file does not exist."
+      return 1
+   fi
+}
+
+rerun() {
 
    ################################################################################
    # Main Program
@@ -93,13 +89,13 @@ rerun() {
          
          # Get commands from history and add them to the macro file
          local hist_id
-         for hist_id in $(parse_hist_ids $*)
+         for hist_id in $(__rerun_parse_hist_ids $*)
          do
             echo $(history -p '!'$hist_id) >> $RERUN_DIR/$macro_name
          done
 
          # Print the macro file
-         ncat $RERUN_DIR/$macro_name
+         __rerun_ncat $RERUN_DIR/$macro_name
          
          # Make the macro file executable
          chmod +x $RERUN_DIR/$macro_name
@@ -120,36 +116,36 @@ rerun() {
          # Otherwise, print out the contents of the macro file
          else
             local macro_name=$1
-            check_macro_file_exists $macro_name || return $?
+            __rerun_check_macro_file_exists $macro_name || return $?
 
             echo " -- Macro [$macro_name]"
-            ncat $RERUN_DIR/$macro_name
+            __rerun_ncat $RERUN_DIR/$macro_name
          fi
          ;;
       append)
          # Add commands to the end of an existing macro
          local macro_name=$1; shift
-         check_macro_file_exists $macro_name || return $? 
+         __rerun_check_macro_file_exists $macro_name || return $? 
          
          echo " -- Appending macro [$macro_name]"
 
          # Print the original macro file
-         ncat $RERUN_DIR/$macro_name
+         __rerun_ncat $RERUN_DIR/$macro_name
 
          local hist_id
-         for hist_id in $(parse_hist_ids $*)
+         for hist_id in $(__rerun_parse_hist_ids $*)
          do
             echo $(history -p '!'$hist_id) >> $RERUN_DIR/$macro_name
          done
 
          # Print the modified macro file 
          echo "------------------------------>"
-         ncat $RERUN_DIR/$macro_name
+         __rerun_ncat $RERUN_DIR/$macro_name
          ;;
       insert)
          # Insert commands into an existing macro
          local macro_name=$1; shift
-         check_macro_file_exists $macro_name || return $? 
+         __rerun_check_macro_file_exists $macro_name || return $? 
 
          echo " -- Inserting into macro [$macro_name]"
          
@@ -157,11 +153,11 @@ rerun() {
          local cmd_pos=$1; shift
 
          # Print the original macro file
-         ncat $RERUN_DIR/$macro_name
+         __rerun_ncat $RERUN_DIR/$macro_name
          
          local idx=0
          local hist_id
-         for hist_id in $(parse_hist_ids $*)
+         for hist_id in $(__rerun_parse_hist_ids $*)
          do
             local cmd=$(history -p '!'$hist_id)
             local pos=$(($cmd_pos+$idx))
@@ -171,12 +167,12 @@ rerun() {
 
          # Print the modified macro file 
          echo "------------------------------>"
-         ncat $RERUN_DIR/$macro_name
+         __rerun_ncat $RERUN_DIR/$macro_name
          ;;
       remove)
          # Remove a command from an existing macro
          local macro_name=$1
-         check_macro_file_exists $macro_name || return $? 
+         __rerun_check_macro_file_exists $macro_name || return $? 
 
          echo " -- Removing from macro [$macro_name]"
          
@@ -184,18 +180,18 @@ rerun() {
          local cmd_pos=$2
          
          # Print the original macro file
-         ncat $RERUN_DIR/$macro_name
+         __rerun_ncat $RERUN_DIR/$macro_name
 
          sed -i $((cmd_pos+1))d $RERUN_DIR/$macro_name
 
          # Print the modified macro file 
          echo "------------------------------>"
-         ncat $RERUN_DIR/$macro_name
+         __rerun_ncat $RERUN_DIR/$macro_name
          ;;
       delete)
          # Delete an existing macro
          local macro_name=$1
-         check_macro_file_exists $macro_name || return $? 
+         __rerun_check_macro_file_exists $macro_name || return $? 
 
          # Remove the macro file and unset the function
          echo " -- Deleting macro [$macro_name]"
