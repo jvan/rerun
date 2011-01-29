@@ -24,7 +24,6 @@ rerun() {
    ################################################################################
 
    local ncat
-   local get_hist_cmd
    local parse_hist_ids
    
    # Print contents of a file with line numbers
@@ -36,10 +35,6 @@ rerun() {
          printf "[%d] %s\n" $index "$line"
          index=$((index+1))
       done <$1
-   }
-
-   get_hist_cmd() {
-      history | grep "^[ ]*$1" | sed "s/^[ ]*[0-9]*[ ]*//g"
    }
 
    parse_hist_ids() {
@@ -100,8 +95,7 @@ rerun() {
          local hist_id
          for hist_id in $(parse_hist_ids $*)
          do
-            cmd=`get_hist_cmd $hist_id`
-            echo $cmd >> $RERUN_DIR/$macro_name
+            echo $(history -p '!'$hist_id) >> $RERUN_DIR/$macro_name
          done
 
          # Print the macro file
@@ -145,8 +139,7 @@ rerun() {
          local hist_id
          for hist_id in $(parse_hist_ids $*)
          do
-            local cmd=`get_hist_cmd $hist_id`
-            echo $cmd >> $RERUN_DIR/$macro_name
+            echo $(history -p '!'$hist_id) >> $RERUN_DIR/$macro_name
          done
 
          # Print the modified macro file 
@@ -170,7 +163,7 @@ rerun() {
          local hist_id
          for hist_id in $(parse_hist_ids $*)
          do
-            local cmd=`get_hist_cmd $hist_id`
+            local cmd=$(history -p '!'$hist_id)
             local pos=$(($cmd_pos+$idx))
             sed -i "$pos"a"$cmd" $RERUN_DIR/$macro_name
             idx=$((idx+1))
