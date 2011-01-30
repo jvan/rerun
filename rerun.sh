@@ -56,6 +56,15 @@ __rerun_check_macro_file_exists() {
    fi
 }
 
+__rerun_exec() {
+   if (($#!=0)); then
+      local action=$1; shift
+      rerun "$action" "${FUNCNAME[1]}" "$@"
+   else
+      "$RERUN_DIR"/"${FUNCNAME[1]}"
+   fi
+}
+
 __rerun_do_create() {
    local macro_name=$1; shift
    # Bailout if the macro is already defined
@@ -81,7 +90,7 @@ __rerun_do_create() {
    chmod +x $RERUN_DIR/$macro_name
    
    # Create a function with the macro name
-   eval "$macro_name"'()' '{' 'eval' '"$(<'"$RERUN_DIR/$macro_name"')";' '}' 
+   eval "$macro_name"'()' '{' '__rerun_exec' '"$@";' '}' 
 }
 
 __rerun_do_list() {
@@ -198,7 +207,7 @@ rerun() {
    # Cleanup macros which have been removed via 'unset'
    for file in $RERUN_DIR/*
    do
-      declare -f `basename $file` | grep "$RERUN_DIR" >& /dev/null
+      declare -f `basename $file` | grep "__rerun_exec" >& /dev/null
       if [[ $? -eq 1 ]]; then
          rm -f $file
       fi
