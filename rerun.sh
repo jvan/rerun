@@ -38,10 +38,20 @@ __rerun_parse_hist_ids() {
    for arg in $*
    do
       if [[ "$arg" =~ ^[0-9]+-[0-9]+$ ]]; then
-         hist_ids+=($(seq ${arg/-/ }))
-      elif [[ "$arg" =~ ^-?[0-9]+:[0-9]+$ ]]; then
-         local start=${arg%:*}
-         hist_ids+=($(seq $start $((start+${arg#*:}-1))))
+         eval hist_ids+=({${arg/-/..}})
+      elif [[ "$arg" =~ ^(-?[0-9]+):([0-9]+)$ ]]; then
+         local start=${BASH_REMATCH[1]}
+         local count=${BASH_REMATCH[2]}
+         eval hist_ids+=({$start..$((start+$count-1))})
+      elif [[ "$arg" =~ ^(-?[0-9]+)([.-]+)$ ]]; then
+         local id=${BASH_REMATCH[1]}
+         local spec=${BASH_REMATCH[2]}
+         hist_ids+=($id)
+         local c
+         for c in $(fold -w1 <<<$spec); do
+            ((++id))
+            [[ $c == '.' ]] && hist_ids+=($id)
+         done
       else
          hist_ids+=($arg)
       fi
