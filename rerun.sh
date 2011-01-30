@@ -37,8 +37,11 @@ __rerun_parse_hist_ids() {
    local arg
    for arg in $*
    do
-      if [[ "$arg" =~ "-" ]]; then
+      if [[ "$arg" =~ ^[0-9]+-[0-9]+$ ]]; then
          hist_ids+=($(seq ${arg/-/ }))
+      elif [[ "$arg" =~ ^-?[0-9]+:[0-9]+$ ]]; then
+         local start=${arg%:*}
+         hist_ids+=($(seq $start $((start+${arg#*:}-1))))
       else
          hist_ids+=($arg)
       fi
@@ -84,6 +87,7 @@ rerun() {
             echo "ERROR: macro file already exists."
             return 1
          fi
+         touch "$RERUN_DIR/$macro_name"
 
          echo " -- Creating macro [$macro_name]"
          
