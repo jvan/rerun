@@ -194,6 +194,14 @@ __rerun_do_remove() {
    __rerun_diff_ncat "$orig" "$RERUN_DIR/$macro_name"
 }
 
+__rerun_do_edit() {
+   local macro_name=$1
+   __rerun_check_macro_file_exists $macro_name || return $? 
+   local orig=$(<"$RERUN_DIR/$macro_name")
+   ${VISUAL:-${EDITOR:-vi}} "$RERUN_DIR/$macro_name"
+   __rerun_diff_ncat "$orig" "$RERUN_DIR/$macro_name"
+}
+
 __rerun_do_delete() {
    # Delete an existing macro
    local macro_name=$1
@@ -247,6 +255,10 @@ rerun() {
          
       r|re|rem|remo|remov|remove)
          __rerun_do_remove "$@" || return $?
+         ;;
+         
+      e|ed|edi|edit)
+         __rerun_do_edit "$@" || return $?
          ;;
 
       d|de|del|dele|delet|delete)
