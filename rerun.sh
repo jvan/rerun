@@ -70,9 +70,10 @@ __rerun_parse_hist_ids() {
    echo ${hist_ids[*]}
 }
 
-__rerun_check_macro_file_exists() {
-   if [[ ! -e $RERUN_DIR/$1 ]]; then
-      echo "ERROR: macro file does not exist."
+__rerun_get_macro_path() {
+   echo "$RERUN_DIR/$1"
+   if [[ ! -x "$RERUN_DIR/$1" ]]; then
+      echo "ERROR: macro $1 does not exist." >&2
       return 1
    fi
 }
@@ -89,11 +90,12 @@ __rerun_exec() {
 __rerun_do_create() {
    local macro_name=$1; shift
    # Bailout if the macro is already defined
-   if [[ -e $RERUN_DIR/$macro_name ]]; then
+   local macro; macro=$(__rerun_get_macro_path "$macro_name" 2>/dev/null)
+   if (($?==0)); then
       echo "ERROR: macro file already exists."
       return 1
    fi
-   touch "$RERUN_DIR/$macro_name"
+   touch "$macro"
 
    echo " -- Creating macro [$macro_name]"
    
@@ -101,14 +103,14 @@ __rerun_do_create() {
    local hist_id
    for hist_id in $(__rerun_parse_hist_ids $*)
    do
-      echo $(history -p '!'$hist_id) >> $RERUN_DIR/$macro_name
+      echo $(history -p '!'$hist_id) >> "$macro"
    done
 
    # Print the macro file
-   __rerun_ncat $RERUN_DIR/$macro_name
+   __rerun_ncat "$macro"
    
    # Make the macro file executable
-   chmod +x $RERUN_DIR/$macro_name
+   chmod +x "$macro"
    
    # Create a function with the macro name
    eval "$macro_name"'()' '{' '__rerun_exec' '"$@";' '}' 
@@ -127,42 +129,42 @@ __rerun_do_list() {
    # Otherwise, print out the contents of the macro file
    else
       local macro_name=$1
-      __rerun_check_macro_file_exists $macro_name || return $?
+      local macro; macro=$(__rerun_get_macro_path "$macro_name") || return $?
 
       echo " -- Macro [$macro_name]"
-      __rerun_ncat $RERUN_DIR/$macro_name
+      __rerun_ncat "$macro"
    fi
 }
 
 __rerun_do_append() {
    # Add commands to the end of an existing macro
    local macro_name=$1; shift
-   __rerun_check_macro_file_exists $macro_name || return $? 
+   local macro; macro=$(__rerun_get_macro_path "$macro_name") || return $?
    
    echo " -- Appending macro [$macro_name]"
 
-   local orig=$(<"$RERUN_DIR/$macro_name")
+   local orig=$(<"$macro")
 
    local hist_id
    for hist_id in $(__rerun_parse_hist_ids $*)
    do
-      echo $(history -p '!'$hist_id) >> "$RERUN_DIR/$macro_name"
+      echo $(history -p '!'$hist_id) >> "$macro"
    done
 
-   __rerun_diff_ncat "$orig" "$RERUN_DIR/$macro_name"
+   __rerun_diff_ncat "$orig" "$macro"
 }
 
 __rerun_do_insert() {
    # Insert commands into an existing macro
    local macro_name=$1; shift
-   __rerun_check_macro_file_exists $macro_name || return $? 
+   local macro; macro=$(__rerun_get_macro_path "$macro_name") || return $?
 
    echo " -- Inserting into macro [$macro_name]"
    
    # Get the index of the insertion point
    local cmd_pos=$(($1+1)); shift
 
-   local orig=$(<"$RERUN_DIR/$macro_name")
+   local orig=$(<"$macro")
    
    local idx=0
    local hist_id
@@ -170,47 +172,47 @@ __rerun_do_insert() {
    do
       local cmd=$(history -p '!'$hist_id)
       local pos=$(($cmd_pos+$idx))
-      sed -i "$pos"i"$cmd" $RERUN_DIR/$macro_name
+      sed -i "$pos"i"$cmd" "$macro"
       ((++idx))
    done
 
-   __rerun_diff_ncat "$orig" "$RERUN_DIR/$macro_name"
+   __rerun_diff_ncat "$orig" "$macro"
 }
 
 __rerun_do_remove() {
    # Remove a command from an existing macro
    local macro_name=$1
-   __rerun_check_macro_file_exists $macro_name || return $? 
+   local macro; macro=$(__rerun_get_macro_path "$macro_name") || return $?
 
    echo " -- Removing from macro [$macro_name]"
    
    # Get the index of item to be removed
    local cmd_pos=$2
    
-   local orig=$(<"$RERUN_DIR/$macro_name")
+   local orig=$(<"$macro")
 
-   sed -i $((cmd_pos+1))d $RERUN_DIR/$macro_name
+   sed -i $((cmd_pos+1))d "$macro"
 
-   __rerun_diff_ncat "$orig" "$RERUN_DIR/$macro_name"
+   __rerun_diff_ncat "$orig" "$macro"
 }
 
 __rerun_do_edit() {
    local macro_name=$1
-   __rerun_check_macro_file_exists $macro_name || return $? 
-   local orig=$(<"$RERUN_DIR/$macro_name")
-   ${VISUAL:-${EDITOR:-vi}} "$RERUN_DIR/$macro_name"
-   __rerun_diff_ncat "$orig" "$RERUN_DIR/$macro_name"
+   local macro; macro=$(__rerun_get_macro_path "$macro_name") || return $?
+   local orig=$(<"$macro")
+   ${VISUAL:-${EDITOR:-vi}} "$macro"
+   __rerun_diff_ncat "$orig" "$macro"
 }
 
 __rerun_do_delete() {
    # Delete an existing macro
    local macro_name=$1
-   __rerun_check_macro_file_exists $macro_name || return $? 
+   local macro; macro=$(__rerun_get_macro_path "$macro_name") || return $?
 
    # Remove the macro file and unset the function
    echo " -- Deleting macro [$macro_name]"
-   rm -f $RERUN_DIR/$macro_name
-   unset $macro_name
+   rm -f "$macro"
+   unset "$macro_name"
 }
 
 rerun() {
