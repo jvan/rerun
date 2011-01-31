@@ -24,12 +24,23 @@
 # Print contents of a file with line numbers
 __rerun_ncat() {
    local index=0
-   local line
-   while read line
-   do
-      printf "[%d] %s\n" $index "$line"
-      index=$((index+1))
+   while read; do
+      printf "%3d  %s\n" $((index++)) "$REPLY"
    done <$1
+}
+
+__rerun_diff_ncat() {
+   local index=0
+   echo "$1" | diff -u99 - "$2" | tail -n+4 | while read; do
+      echo -n "${REPLY:0:1}"
+      if [[ ${REPLY:0:1} == '-' ]]; then
+         echo -n "    "
+      else
+         printf '%2d  ' $index
+         ((++index))
+      fi
+      echo "${REPLY:1}"
+   done
 }
 
 __rerun_parse_hist_ids() {
@@ -130,18 +141,15 @@ __rerun_do_append() {
    
    echo " -- Appending macro [$macro_name]"
 
-   # Print the original macro file
-   __rerun_ncat $RERUN_DIR/$macro_name
+   local orig=$(<"$RERUN_DIR/$macro_name")
 
    local hist_id
    for hist_id in $(__rerun_parse_hist_ids $*)
    do
-      echo $(history -p '!'$hist_id) >> $RERUN_DIR/$macro_name
+      echo $(history -p '!'$hist_id) >> "$RERUN_DIR/$macro_name"
    done
 
-   # Print the modified macro file 
-   echo "------------------------------>"
-   __rerun_ncat $RERUN_DIR/$macro_name
+   __rerun_diff_ncat "$orig" "$RERUN_DIR/$macro_name"
 }
 
 __rerun_do_insert() {
@@ -152,10 +160,9 @@ __rerun_do_insert() {
    echo " -- Inserting into macro [$macro_name]"
    
    # Get the index of the insertion point
-   local cmd_pos=$1; shift
+   local cmd_pos=$(($1+1)); shift
 
-   # Print the original macro file
-   __rerun_ncat $RERUN_DIR/$macro_name
+   local orig=$(<"$RERUN_DIR/$macro_name")
    
    local idx=0
    local hist_id
@@ -163,13 +170,11 @@ __rerun_do_insert() {
    do
       local cmd=$(history -p '!'$hist_id)
       local pos=$(($cmd_pos+$idx))
-      sed -i "$pos"a"$cmd" $RERUN_DIR/$macro_name
-      idx=$((idx+1))
+      sed -i "$pos"i"$cmd" $RERUN_DIR/$macro_name
+      ((++idx))
    done
 
-   # Print the modified macro file 
-   echo "------------------------------>"
-   __rerun_ncat $RERUN_DIR/$macro_name
+   __rerun_diff_ncat "$orig" "$RERUN_DIR/$macro_name"
 }
 
 __rerun_do_remove() {
@@ -182,14 +187,11 @@ __rerun_do_remove() {
    # Get the index of item to be removed
    local cmd_pos=$2
    
-   # Print the original macro file
-   __rerun_ncat $RERUN_DIR/$macro_name
+   local orig=$(<"$RERUN_DIR/$macro_name")
 
    sed -i $((cmd_pos+1))d $RERUN_DIR/$macro_name
 
-   # Print the modified macro file 
-   echo "------------------------------>"
-   __rerun_ncat $RERUN_DIR/$macro_name
+   __rerun_diff_ncat "$orig" "$RERUN_DIR/$macro_name"
 }
 
 __rerun_do_delete() {
