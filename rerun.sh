@@ -1,20 +1,20 @@
 #
 # NAME: rerun -- BASH history macro generator
 #
-# USAGE: rerun <ACTION> [OPTIONS]
-#
-#    rerun create MACRO
+# USAGE: rerun <action> [args]
+#    rerun create <macro name> [history ids] [...]
 #    rerun list
-#    rerun list MACRO
-#    rerun append MACRO HIST_IDS
-#    rerun insert MACRO POS HIST_IDS
-#    rerun remove MACRO POS
-#    rerun delete MACRO
+#    rerun list <macro name>
+#    rerun append <macro name> <history ids> [...]
+#    rerun insert <macro name> <position> <history ids> [...]
+#    rerun remove <macro name> <position>
+#    rerun edit <macro name>
+#    rerun delete <macro name>
 #
 # DESCRIPTION:
 #    This program is used to create macros from commands from
 #    the BASH history.
-#
+ #
 
 ################################################################################
 # Internal Functions
@@ -215,6 +215,11 @@ __rerun_do_delete() {
    unset "$macro_name"
 }
 
+__rerun_return_help() {
+   eval "$(sed '1,3d;/^[^#]/Q;s/^# \?\(.*\)$/echo "\1";/' $__rerun_source_path)"
+   return 2
+}
+
 rerun() {
 
    ################################################################################
@@ -266,11 +271,19 @@ rerun() {
       d|de|del|dele|delet|delete)
          __rerun_do_delete "$@" || return $?
          ;;
+         
+      '')
+         __rerun_return_help
+         return $?
+         ;;
 
       *) 
-         echo "ERROR: unrecognized action."
-         return 1
+         echo "ERROR: unrecognized action \"$action\"."
+         __rerun_return_help
+         return $?
          ;;
    esac
 }
 
+# Get path to this source file
+__rerun_source_path=$(f(){ readlink -f "$BASH_SOURCE";};f)
