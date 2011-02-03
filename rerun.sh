@@ -31,7 +31,7 @@ __rerun_ncat() {
 
 __rerun_diff_ncat() {
    local index=0
-   echo "$1" | diff -u 99 - "$2" | tail -n+4 | while read; do
+   echo "$1" | diff -U 99 - "$2" | tail -n+4 | while read; do
       echo -n "${REPLY:0:1}"
       if [[ ${REPLY:0:1} == '-' ]]; then
          echo -n "    "
