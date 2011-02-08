@@ -262,7 +262,8 @@ __rerun_do_delete() {
 }
 
 __rerun_return_help() {
-   eval "$(sed '1,4d;/^[^#]/q;s/^# \?\(.*\)$/echo "\1";/' $__rerun_source_path)"
+   local src=$(sed '1,4d;/^[^#]/q;s/^# \{0,1\}\(.*\)$/echo "\1";/' "$__rerun_source_path")
+   eval "$src"
    return 2
 }
 
