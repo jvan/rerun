@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # NAME: rerun -- BASH history macro generator
 #
@@ -16,10 +17,29 @@
 #    the BASH history.
  #
 
-################################################################################
-# Internal Functions
+
+# If not interactive, assume we were executed and not sourced, therefore
+# show instructions on how to get rerun into a bash session.
+if [[ -z "$PS1" ]]; then
+   cmd="source "
+   if [[ $(which rerun) == "$0" ]]; then # 
+      cmd+="rerun"
+   else
+      cmd+="\"$0\""
+   fi
+   echo "To install rerun for this bash session, run:"
+   echo
+   echo "  $cmd"
+   echo
+   echo "To install rerun for all your future bash sessions,"
+   echo "put the above in your ~/.bashrc file."
+   exit
+fi
+
+
+######################
+# Internal functions
 #
-################################################################################
 
 # Print contents of a file with line numbers
 __rerun_ncat() {
@@ -29,6 +49,8 @@ __rerun_ncat() {
    done <$1
 }
 
+# Print contents of a file with line numbers, and show
+# differences with given input using unified format
 __rerun_diff_ncat() {
    local index=0
    echo "$1" | diff -U 99 - "$2" | tail -n+4 | while read; do
@@ -42,6 +64,30 @@ __rerun_diff_ncat() {
       echo "${REPLY:1}"
    done
 }
+
+# Echo absolute canonical path of given path ($1)
+# Some systems can just use 'readlink -f'
+__rerun_get_canonical_path() (
+   local path=$1
+   local dir=$(dirname "$path")
+   # Follow symlinks
+   while [[ -L "$path" ]]; do
+      cd "$dir"
+      path=$(readlink "$path")
+      dir=$(dirname "$path")
+   done
+   # Bail with error on non-existent path
+   [[ -e "$path" ]] || return 1;
+   # Get full physical path of file or directory
+   local base=""
+   if [[ -d "$path" ]]; then
+      dir=$path
+   else
+      base=/$(basename "$path")
+   fi
+   cd "$dir"
+   echo "$(pwd -P)$base"
+)
 
 __rerun_parse_hist_ids() {
    local -a hist_ids=()
@@ -216,17 +262,15 @@ __rerun_do_delete() {
 }
 
 __rerun_return_help() {
-   eval "$(sed '1,3d;/^[^#]/Q;s/^# \?\(.*\)$/echo "\1";/' $__rerun_source_path)"
+   eval "$(sed '1,4d;/^[^#]/q;s/^# \?\(.*\)$/echo "\1";/' $__rerun_source_path)"
    return 2
 }
 
+######################
+# External functions
+#
+
 rerun() {
-
-   ################################################################################
-   # Main Program
-   #
-   ################################################################################
-
    # Setup directories and global variables
    RERUN_DIR=${RERUN_DIR:=$(mktemp -d -t rerun.XXXXX)}
    mkdir -p "$RERUN_DIR"
@@ -285,5 +329,9 @@ rerun() {
    esac
 }
 
-# Get path to this source file
-__rerun_source_path=$(f(){ readlink -f "$BASH_SOURCE";};f)
+######################
+# Internal variables
+#
+
+# Path to this source file
+__rerun_source_path=$(f(){ __rerun_get_canonical_path "$BASH_SOURCE";};f)

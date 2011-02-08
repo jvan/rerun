@@ -26,6 +26,7 @@ echo 5
 set +o history
 
 # Bring in rerun
+PS1=" " # Fake out rerun into thinking we're interactive
 source rerun.sh
 
 # Creation from list
